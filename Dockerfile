@@ -1,4 +1,4 @@
-# Backend Dockerfile
+# Backend Dockerfile (backend-only repo)
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -8,17 +8,16 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Install deps first (better layer caching)
-COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install --no-cache-dir -r /app/backend/requirements.txt
+COPY requirements.txt /app/requirements.txt
+RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Copy source
-COPY backend /app/backend
-COPY ml /app/ml
+# Copy source (app directory at repo root)
+COPY app /app/app
 
-# Build a small demo model so the service is ready out-of-the-box
-# Uses the included synthetic CSV; if it fails, don't block the build
-RUN python /app/ml/train.py --data /app/ml/data/synthetic.csv --nrows 200 --model-out /app/ml/models/model.joblib || true
+# Optional: If you later add a model, set MODEL_PATH to its location.
+# ENV MODEL_PATH=/app/ml/models/model.joblib
 
 EXPOSE 8000
 
-CMD ["uvicorn", "backend.app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Start FastAPI
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
