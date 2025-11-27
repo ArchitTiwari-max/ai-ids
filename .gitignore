@@ -1,19 +1,21 @@
-# Byte-compiled / optimized / DLL files
+# Python
+.venv/
+venv/
+ENV/
 __pycache__/
 *.py[cod]
 *$py.class
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.env
 
 # Distribution / packaging
 .Python
 build/
 dist/
 .eggs/
-*.egg-info/
-
-# Virtual environments
-.venv/
-venv/
-ENV/
 
 # Unit test / coverage reports
 htmlcov/
@@ -23,6 +25,15 @@ htmlcov/
 
 # Logs
 *.log
+
+# Models and data
+ml/models/
+ml/data/
+!ml/models/.gitkeep
+!ml/data/.gitkeep
+
+# Node
+node_modules/
 
 # OS / Editor
 .DS_Store

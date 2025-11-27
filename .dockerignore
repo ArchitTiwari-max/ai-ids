@@ -1,0 +1,23 @@
+# Node / JS
+node_modules
+**/node_modules
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml
+
+# Python
+__pycache__
+*.pyc
+.venv
+
+# Vite build
+**/dist
+
+# Data and large artifacts (keep synthetic.csv and models)
+ml/data/*
+!ml/data/synthetic.csv
+
+# Git and local
+.git
+.gitignore
+.DS_Store
