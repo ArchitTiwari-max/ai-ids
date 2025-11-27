@@ -1,0 +1,40 @@
+* { box-sizing: border-box; }
+:root { color-scheme: light dark; font-synthesis-weight: none; }
+body { margin: 0; font-family: ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica Neue, Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+.container { max-width: 1100px; margin: 24px auto; padding: 0 16px; }
+.header { display: flex; align-items: center; justify-content: space-between; }
+.badge { padding: 4px 8px; border-radius: 6px; font-size: 12px; }
+.badge.ok { background: #10b98122; color: #10b981; }
+.badge.err { background: #ef444422; color: #ef4444; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 16px; }
+.card { border: 1px solid #4443; border-radius: 10px; padding: 12px; }
+.table { width: 100%; border-collapse: collapse; font-size: 14px; }
+.table th, .table td { border-bottom: 1px solid #4443; padding: 6px 8px; text-align: left; }
+.table th { background: #4441; }
+.chart { height: 300px; }
+@media (max-width: 900px) { .grid { grid-template-columns: 1fr; } }
+
+/* Additional styles for App.jsx */
+header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.status { padding: 4px 8px; border-radius: 6px; font-size: 12px; border: 1px solid #4443; }
+.status-connecting { background: #f59e0b22; color: #f59e0b; }
+.status-connected { background: #10b98122; color: #10b981; }
+.status-disconnected { background: #6b728022; color: #6b7280; }
+.status-error { background: #ef444422; color: #ef4444; }
+
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin: 12px 0 20px; }
+.stat { border: 1px solid #4443; border-radius: 10px; padding: 10px 12px; }
+.stat-label { font-size: 12px; opacity: 0.8; }
+.stat-value { font-size: 20px; font-weight: 700; }
+
+.card-title { font-weight: 600; margin-bottom: 8px; }
+.table-wrap { overflow: auto; }
+
+table { width: 100%; border-collapse: collapse; font-size: 14px; }
+th, td { border-bottom: 1px solid #4443; padding: 6px 8px; text-align: left; }
+th { background: #4441; }
+
+.row-bad { background: #ef444408; }
+.row-good { background: transparent; }
+
+.kv { display: inline-block; margin-right: 8px; opacity: 0.9; }
