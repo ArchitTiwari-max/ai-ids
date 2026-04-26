@@ -7,7 +7,7 @@ services:
       - "1883:1883"
 
   backend:
-    build: ./backend
+    build: ./web/backend
     container_name: ids-backend
     env_file:
       - .env
@@ -17,17 +17,17 @@ services:
       - .:/app
     ports:
       - "8000:8000"
-    command: uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: uvicorn web.backend.app.main:app --host 0.0.0.0 --port 8000 --reload
     depends_on:
       - mqtt
 
   dashboard:
-    build: ./dashboard
+    build: ./web/frontend
     container_name: ids-dashboard
     environment:
       - VITE_BACKEND_HOST=localhost:8000
     volumes:
-      - ./dashboard:/app
+      - ./web/frontend:/app
       - /app/node_modules
     ports:
       - "5173:5173"

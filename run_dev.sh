@@ -5,8 +5,8 @@ set -e
 # Usage: ./run_dev.sh
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$ROOT_DIR/backend"
-FRONTEND_DIR="$ROOT_DIR/dashboard"
+BACKEND_DIR="$ROOT_DIR/web/backend"
+FRONTEND_DIR="$ROOT_DIR/web/frontend"
 
 # --- Backend ---
 cd "$BACKEND_DIR"

@@ -11,10 +11,11 @@ import numpy as np
 import pandas as pd
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel
 
 MODEL_ENV = os.getenv("MODEL_PATH")
-DEFAULT_MODEL_PATH = Path(__file__).resolve().parents[2] / "ml" / "models" / "model.joblib"
+DEFAULT_MODEL_PATH = Path(__file__).resolve().parents[3] / "ml" / "models" / "model.joblib"
 
 app = FastAPI(title="AI IDS Backend", version="0.1.0")
 app.add_middleware(
@@ -90,6 +91,7 @@ def predict_from_features(features: Dict[str, Any]) -> tuple[bool, Optional[floa
         # No model: return benign by default
         return False, None
     df = pd.DataFrame([features])
+    print(f"[DEBUG] Received DF columns: {df.columns.tolist()}")
     # Align model pipeline expects training-time columns via ColumnTransformer; it will ignore unknowns if configured
     try:
         if hasattr(model, "predict_proba"):
@@ -100,8 +102,34 @@ def predict_from_features(features: Dict[str, Any]) -> tuple[bool, Optional[floa
             pred = model.predict(df)
             return bool(pred[0] == 1), None
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"[ERROR] Prediction failed: {e}")
         return False, None
+
+
+@app.get("/", response_class=HTMLResponse)
+def root():
+    # Simple human-friendly landing page for the API service
+    return """
+    <html>
+      <head><title>AI IDS Backend</title></head>
+      <body style='font-family: system-ui, -apple-system, sans-serif; background:#020617; color:#e5e7eb; padding:2rem;'>
+        <h1>AI IDS Backend</h1>
+        <p>Service is running.</p>
+        <ul>
+          <li><a href="/health" style='color:#22c55e;'>/health</a> – basic health check</li>
+          <li><a href="/docs" style='color:#22c55e;'>/docs</a> – interactive API docs</li>
+        </ul>
+      </body>
+    </html>
+    """
+
+
+@app.get("/favicon.ico", include_in_schema=False)
+def favicon():
+    # Empty icon to avoid noisy 404s in the browser
+    return PlainTextResponse("", media_type="image/x-icon")
 
 
 @app.get("/health")
@@ -127,11 +155,10 @@ async def ingest(req: PredictRequest):
         timestamp=ts,
         features=req.features,
     )
-    if malicious:
-        RECENT_ALERTS.append(alert)
-        if len(RECENT_ALERTS) > RECENT_LIMIT:
-            RECENT_ALERTS.pop(0)
-        await manager.broadcast(alert.model_dump())
+    RECENT_ALERTS.append(alert)
+    if len(RECENT_ALERTS) > RECENT_LIMIT:
+        RECENT_ALERTS.pop(0)
+    await manager.broadcast(alert.model_dump())
     return {"ingested": True, "malicious": malicious, "score": score, "timestamp": ts}
 
 

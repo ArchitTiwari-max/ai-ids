@@ -10,9 +10,10 @@ Tech stack
 - React (Vite) dashboard
 
 Repo layout
+- web/
+  - backend/ — FastAPI service exposing /predict, /ingest and /ws/alerts
+  - frontend/ — React UI (dashboard) subscribing to real-time alerts
 - ml/ — training pipeline, model artifacts
-- backend/ — FastAPI service exposing /predict, /ingest and /ws/alerts
-- dashboard/ — React UI subscribing to real-time alerts
 - scripts/ — data replay utilities
 
 Getting started
@@ -33,7 +34,7 @@ Getting started
   - source .venv/bin/activate
   - pip install -r ml/requirements.txt
 - Backend deps
-  - pip install -r backend/requirements.txt
+  - pip install -r web/backend/requirements.txt
 
 4) Train a baseline model (RandomForest)
 - Example (train on first 300k rows of all CSVs in data/):
@@ -41,7 +42,7 @@ Getting started
 - You should see classification metrics; model and schema saved under ml/models/
 
 5) Run the backend
-- uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload
+- uvicorn web.backend.app.main:app --host 0.0.0.0 --port 8000 --reload
 - Endpoints:
   - GET  /health
   - POST /predict (single record JSON)
@@ -49,7 +50,7 @@ Getting started
   - WS   /ws/alerts (real-time alerts stream)
 
 6) Run the dashboard
-- cd dashboard
+- cd web/frontend
 - npm install
 - npm run dev
 - Open the shown localhost URL; it will connect to ws://localhost:8000/ws/alerts
