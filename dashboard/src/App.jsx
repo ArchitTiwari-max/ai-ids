@@ -9,7 +9,7 @@ import {
   Tooltip,
   Legend
 } from 'chart.js'
-import { getWsUrl } from './lib/api'
+import { getWsUrl, getApiBase } from './lib/api'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
@@ -149,19 +149,24 @@ export default function App() {
 
   // Scan button state and handler
   const [scanning, setScanning] = useState(false)
-  const host = import.meta.env.VITE_BACKEND_HOST || 'localhost:8000'
   const runScan = async () => {
     if (scanning) return
     setScanning(true)
+    const apiBase = getApiBase()
     try {
       for (let i = 0; i < 25; i++) {
         const useHit = Math.random() < 0.5
-        const f1 = useHit ? 0 : Math.floor(Math.random() * 3)
-        const f2 = useHit ? 7 : Math.floor(Math.random() * 3)
-        await fetch(`http://${host}/ingest`, {
+        // Generate features matching the model schema
+        const features = {
+          'Destination Port': useHit ? 443 : Math.floor(Math.random() * 65535),
+          'Flow Duration': useHit ? 10000 : Math.floor(Math.random() * 60000),
+          'Total Fwd Packets': useHit ? 500 : Math.floor(Math.random() * 100),
+          'Total Backward Packets': useHit ? 400 : Math.floor(Math.random() * 80)
+        }
+        await fetch(`${apiBase}/ingest`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ features: { f1, f2 } })
+          body: JSON.stringify({ features })
         }).catch(() => {})
         await new Promise((r) => setTimeout(r, 100))
       }

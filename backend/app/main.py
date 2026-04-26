@@ -91,6 +91,7 @@ def predict_from_features(features: Dict[str, Any]) -> tuple[bool, Optional[floa
         # No model: return benign by default
         return False, None
     df = pd.DataFrame([features])
+    print(f"[DEBUG] Received DF columns: {df.columns.tolist()}")
     # Align model pipeline expects training-time columns via ColumnTransformer; it will ignore unknowns if configured
     try:
         if hasattr(model, "predict_proba"):
@@ -101,6 +102,8 @@ def predict_from_features(features: Dict[str, Any]) -> tuple[bool, Optional[floa
             pred = model.predict(df)
             return bool(pred[0] == 1), None
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         print(f"[ERROR] Prediction failed: {e}")
         return False, None
 
@@ -152,11 +155,10 @@ async def ingest(req: PredictRequest):
         timestamp=ts,
         features=req.features,
     )
-    if malicious:
-        RECENT_ALERTS.append(alert)
-        if len(RECENT_ALERTS) > RECENT_LIMIT:
-            RECENT_ALERTS.pop(0)
-        await manager.broadcast(alert.model_dump())
+    RECENT_ALERTS.append(alert)
+    if len(RECENT_ALERTS) > RECENT_LIMIT:
+        RECENT_ALERTS.pop(0)
+    await manager.broadcast(alert.model_dump())
     return {"ingested": True, "malicious": malicious, "score": score, "timestamp": ts}
 
 

@@ -1,4 +1,4 @@
-# Backend Dockerfile (backend-only repo)
+# Backend Dockerfile
 FROM python:3.11-slim
 
 ENV PYTHONUNBUFFERED=1 \
@@ -8,14 +8,15 @@ ENV PYTHONUNBUFFERED=1 \
 WORKDIR /app
 
 # Install deps first (better layer caching)
-COPY requirements.txt /app/requirements.txt
+COPY backend/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r /app/requirements.txt
 
-# Copy source (app directory at repo root)
-COPY app /app/app
+# Copy source and model
+COPY backend/app /app/app
+COPY ml /app/ml
 
-# Optional: If you later add a model, set MODEL_PATH to its location.
-# ENV MODEL_PATH=/app/ml/models/model.joblib
+# Set the default model path relative to the app
+ENV MODEL_PATH=/app/ml/models/model.joblib
 
 EXPOSE 8000
 
