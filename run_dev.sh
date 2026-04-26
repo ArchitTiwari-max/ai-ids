@@ -5,8 +5,8 @@ set -e
 # Usage: ./run_dev.sh
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BACKEND_DIR="$ROOT_DIR/web/backend"
-FRONTEND_DIR="$ROOT_DIR/web/frontend"
+BACKEND_DIR="$ROOT_DIR/web/api"
+FRONTEND_DIR="$ROOT_DIR/web"
 
 # --- Backend ---
 cd "$BACKEND_DIR"
@@ -24,8 +24,8 @@ if [ -f "requirements.txt" ]; then
 fi
 
 echo "[backend] Starting uvicorn on http://localhost:8000 ..."
-# When running from the backend directory, the app module is `app.main:app`, not `backend.app.main:app`
-./.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+# Run the index:app to match what Vercel executes
+./.venv/bin/uvicorn index:app --host 0.0.0.0 --port 8000 --reload &
 BACKEND_PID=$!
 
 deactivate || true
