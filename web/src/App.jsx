@@ -146,21 +146,31 @@ export default function App() {
 
   const { data, options } = useChartData(alerts)
 
-  // Scan button — collects responses directly from /ingest so it works on stateless Vercel
+  // Real traffic samples from ml/data/sample.csv
+  const CSV_SAMPLES = [
+    { 'Destination Port': 80,  'Flow Duration': 1000, 'Total Fwd Packets': 10,  'Total Backward Packets': 5  },  // BENIGN
+    { 'Destination Port': 443, 'Flow Duration': 1500, 'Total Fwd Packets': 12,  'Total Backward Packets': 8  },  // BENIGN
+    { 'Destination Port': 22,  'Flow Duration': 2000, 'Total Fwd Packets': 15,  'Total Backward Packets': 10 },  // BENIGN
+    { 'Destination Port': 80,  'Flow Duration': 100,  'Total Fwd Packets': 2,   'Total Backward Packets': 1  },  // BENIGN
+    { 'Destination Port': 443, 'Flow Duration': 500,  'Total Fwd Packets': 8,   'Total Backward Packets': 4  },  // BENIGN
+    { 'Destination Port': 80,  'Flow Duration': 5000, 'Total Fwd Packets': 50,  'Total Backward Packets': 40 },  // MALICIOUS
+    { 'Destination Port': 22,  'Flow Duration': 100,  'Total Fwd Packets': 500, 'Total Backward Packets': 1  },  // MALICIOUS
+    { 'Destination Port': 80,  'Flow Duration': 2000, 'Total Fwd Packets': 100, 'Total Backward Packets': 10 },  // MALICIOUS
+    { 'Destination Port': 80,  'Flow Duration': 3000, 'Total Fwd Packets': 80,  'Total Backward Packets': 20 },  // MALICIOUS
+    { 'Destination Port': 443, 'Flow Duration': 4000, 'Total Fwd Packets': 120, 'Total Backward Packets': 30 },  // MALICIOUS
+  ]
+
+  // Scan button — sends real CSV rows to backend one by one
   const [scanning, setScanning] = useState(false)
   const runScan = async () => {
     if (scanning) return
     setScanning(true)
     const apiBase = getApiBase()
     try {
-      for (let i = 0; i < 25; i++) {
-        const useHit = Math.random() < 0.5
-        const features = {
-          'Destination Port': useHit ? 443 : Math.floor(Math.random() * 65535),
-          'Flow Duration': useHit ? 10000 : Math.floor(Math.random() * 60000),
-          'Total Fwd Packets': useHit ? 500 : Math.floor(Math.random() * 100),
-          'Total Backward Packets': useHit ? 400 : Math.floor(Math.random() * 80)
-        }
+      // Send all CSV rows (shuffle for variety)
+      const shuffled = [...CSV_SAMPLES].sort(() => Math.random() - 0.5)
+      for (let i = 0; i < shuffled.length; i++) {
+        const features = shuffled[i]
         try {
           const res = await fetch(`${apiBase}/ingest`, {
             method: 'POST',
@@ -169,18 +179,16 @@ export default function App() {
           })
           if (res.ok) {
             const result = await res.json()
-            // Collect response directly — no reliance on backend in-memory state
-            const alert = {
+            addAlerts([{
               id: result.timestamp + '_' + i,
               malicious: result.malicious,
               score: result.score,
               timestamp: result.timestamp,
               features
-            }
-            addAlerts([alert])
+            }])
           }
         } catch {}
-        await new Promise((r) => setTimeout(r, 100))
+        await new Promise((r) => setTimeout(r, 200))
       }
     } finally {
       setScanning(false)
