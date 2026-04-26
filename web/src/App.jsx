@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { Line } from 'react-chartjs-2'
 import {
   Chart as ChartJS,
@@ -13,12 +13,10 @@ import { getWsUrl, getApiBase } from './lib/api'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
-function useWebSocketAlerts() {
+function useAlerts() {
   const [alerts, setAlerts] = useState([])
-  const [status, setStatus] = useState('disconnected')
-  const wsRef = useRef(null)
+  const [status, setStatus] = useState('polling')
 
-  // Deduplication helper
   const addAlerts = (newAlerts) => {
     setAlerts((prev) => {
       const existingIds = new Set(prev.map((a) => a.id))
@@ -28,56 +26,27 @@ function useWebSocketAlerts() {
     })
   }
 
+  // Try WebSocket — works locally, gracefully degrades on Vercel
   useEffect(() => {
-    const url = getWsUrl()
-    const ws = new WebSocket(url)
-    wsRef.current = ws
-    setStatus('connecting')
-
-    ws.onopen = () => setStatus('connected')
-    ws.onclose = () => setStatus('disconnected')
-    ws.onerror = () => {
-      setStatus('error')
-      // Note: ws.onerror doesn't provide detail, but we can assume WS is not supported or failed
-    }
-
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data)
-        if (msg?.type === 'hello') return
-        addAlerts([msg])
-      } catch {}
-    }
-
-    return () => {
-      try { ws.close() } catch {}
-    }
+    let ws
+    try {
+      const url = getWsUrl()
+      ws = new WebSocket(url)
+      ws.onopen = () => setStatus('live')
+      ws.onclose = () => setStatus('polling')
+      ws.onerror = () => setStatus('polling')
+      ws.onmessage = (ev) => {
+        try {
+          const msg = JSON.parse(ev.data)
+          if (msg?.type === 'hello') return
+          addAlerts([msg])
+        } catch {}
+      }
+    } catch {}
+    return () => { try { ws?.close() } catch {} }
   }, [])
 
-  // Polling fallback if status is not connected
-  useEffect(() => {
-    if (status === 'connected') return
-
-    const poll = async () => {
-      const apiBase = getApiBase()
-      try {
-        const res = await fetch(`${apiBase}/alerts/recent?limit=50`)
-        if (res.ok) {
-          const data = await res.json()
-          addAlerts(data)
-        }
-      } catch (err) {
-        console.warn('Polling failed:', err)
-      }
-    }
-
-    // Initial poll
-    poll()
-    const timer = setInterval(poll, 3000)
-    return () => clearInterval(timer)
-  }, [status])
-
-  return { alerts, status }
+  return { alerts, status, addAlerts }
 }
 
 function useChartData(alerts) {
@@ -167,7 +136,7 @@ function AlertsTable({ alerts }) {
 }
 
 export default function App() {
-  const { alerts, status } = useWebSocketAlerts()
+  const { alerts, status, addAlerts } = useAlerts()
   const total = alerts.length
   const malicious = alerts.filter((a) => a.malicious).length
   const benign = total - malicious
@@ -177,7 +146,7 @@ export default function App() {
 
   const { data, options } = useChartData(alerts)
 
-  // Scan button state and handler
+  // Scan button — collects responses directly from /ingest so it works on stateless Vercel
   const [scanning, setScanning] = useState(false)
   const runScan = async () => {
     if (scanning) return
@@ -186,18 +155,31 @@ export default function App() {
     try {
       for (let i = 0; i < 25; i++) {
         const useHit = Math.random() < 0.5
-        // Generate features matching the model schema
         const features = {
           'Destination Port': useHit ? 443 : Math.floor(Math.random() * 65535),
           'Flow Duration': useHit ? 10000 : Math.floor(Math.random() * 60000),
           'Total Fwd Packets': useHit ? 500 : Math.floor(Math.random() * 100),
           'Total Backward Packets': useHit ? 400 : Math.floor(Math.random() * 80)
         }
-        await fetch(`${apiBase}/ingest`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ features })
-        }).catch(() => {})
+        try {
+          const res = await fetch(`${apiBase}/ingest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ features })
+          })
+          if (res.ok) {
+            const result = await res.json()
+            // Collect response directly — no reliance on backend in-memory state
+            const alert = {
+              id: result.timestamp + '_' + i,
+              malicious: result.malicious,
+              score: result.score,
+              timestamp: result.timestamp,
+              features
+            }
+            addAlerts([alert])
+          }
+        } catch {}
         await new Promise((r) => setTimeout(r, 100))
       }
     } finally {
@@ -205,14 +187,16 @@ export default function App() {
     }
   }
 
+  const statusLabel = status === 'live' ? '🟢 Live (WebSocket)' : '🟡 Polling mode'
+
   return (
     <div className="container">
       <header>
         <h1>AI IDS Dashboard</h1>
-        <div className={`status status-${status}`}>WS: {status}</div>
+        <div className={`status status-${status}`}>{statusLabel}</div>
         <div style={{ marginLeft: 'auto' }}>
           <button onClick={runScan} disabled={scanning} className="btn">
-            {scanning ? 'Scanning…' : 'Scan'}
+            {scanning ? 'Scanning…' : 'Run Scan'}
           </button>
         </div>
       </header>
@@ -233,7 +217,7 @@ export default function App() {
 
       <footer>
         <small>
-          Backend expected at ws://localhost:8000/ws/alerts. Override with VITE_BACKEND_HOST, e.g. VITE_BACKEND_HOST=localhost:8000
+          Backend: {getApiBase()} · Click &quot;Run Scan&quot; to simulate traffic and see results.
         </small>
       </footer>
     </div>

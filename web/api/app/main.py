@@ -15,7 +15,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel
 
 MODEL_ENV = os.getenv("MODEL_PATH")
-DEFAULT_MODEL_PATH = Path(__file__).resolve().parents[3] / "ml" / "models" / "model.joblib"
+DEFAULT_MODEL_PATH = Path(__file__).resolve().parent / "models" / "model.joblib"
 
 app = FastAPI(title="AI IDS Backend", version="0.1.0")
 app.add_middleware(

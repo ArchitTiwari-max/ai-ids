@@ -8,18 +8,15 @@
  *   "localhost:8000"
  */
 export function getApiBase() {
-  let cfg = import.meta.env.VITE_BACKEND_HOST || 'localhost:8000';
-  cfg = cfg.trim().replace(/\/$/, '');
+  const cfg = import.meta.env.VITE_BACKEND_HOST;
+  if (!cfg) return import.meta.env.PROD ? '/api' : 'http://localhost:8000';
 
-  // Already a full URL
-  if (/^https?:\/\//i.test(cfg)) {
-    return cfg.replace(/\/$/, '');
-  }
+  const clean = cfg.trim().replace(/\/$/, '');
+  if (/^https?:\/\//i.test(clean)) return clean;
 
-  // Bare host[:port] — choose protocol by locality
-  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(cfg);
+  const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(clean);
   const proto = isLocal ? window.location.protocol : 'https:';
-  return `${proto}//${cfg}`;
+  return `${proto}//${clean}`;
 }
 
 /**

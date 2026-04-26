@@ -20,12 +20,12 @@ source .venv/bin/activate
 
 if [ -f "requirements.txt" ]; then
   echo "[backend] Installing dependencies (requirements.txt)..."
-  pip install -r requirements.txt
+  python3 -m pip install -r requirements.txt
 fi
 
 echo "[backend] Starting uvicorn on http://localhost:8000 ..."
 # When running from the backend directory, the app module is `app.main:app`, not `backend.app.main:app`
-uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
+./.venv/bin/uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload &
 BACKEND_PID=$!
 
 deactivate || true

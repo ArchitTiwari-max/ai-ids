@@ -4,11 +4,11 @@ FROM node:20-alpine
 WORKDIR /app
 
 # Install deps
-COPY package.json /app/package.json
+COPY dashboard/package.json /app/package.json
 RUN npm install
 
 # Copy source
-COPY . /app
+COPY dashboard /app
 
 EXPOSE 5173
 
