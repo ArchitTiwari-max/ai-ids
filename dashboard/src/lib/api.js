@@ -1,28 +1,33 @@
 // dashboard/src/lib/api.js
+
+/**
+ * Normalises VITE_BACKEND_HOST to a full https URL (no trailing slash).
+ * Accepts any of:
+ *   "ai-ids-iawg.onrender.com"
+ *   "https://ai-ids-iawg.onrender.com"
+ *   "localhost:8000"
+ */
 export function getApiBase() {
-  const cfg = import.meta.env.VITE_BACKEND_HOST || 'localhost:8000';
-  const isFull = /^https?:\/\//.test(cfg);
-  if (isFull) return cfg.replace(/\/$/, '');
+  let cfg = import.meta.env.VITE_BACKEND_HOST || 'localhost:8000';
+  cfg = cfg.trim().replace(/\/$/, '');
+
+  // Already a full URL
+  if (/^https?:\/\//i.test(cfg)) {
+    return cfg.replace(/\/$/, '');
+  }
+
+  // Bare host[:port] — choose protocol by locality
   const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(cfg);
-  // For non-local hosts, default to https
   const proto = isLocal ? window.location.protocol : 'https:';
   return `${proto}//${cfg}`;
 }
 
+/**
+ * Derives the WebSocket URL from the same VITE_BACKEND_HOST setting.
+ * https → wss, http → ws.
+ */
 export function getWsUrl() {
-  const cfg = import.meta.env.VITE_BACKEND_HOST || 'localhost:8000';
-  const isFull = /^https?:\/\//.test(cfg);
-  let host;
-  let wsProto;
-  if (isFull) {
-    const url = new URL(cfg);
-    host = url.host;
-    wsProto = url.protocol === 'https:' ? 'wss' : 'ws';
-  } else {
-    host = cfg;
-    const isLocal = /^(localhost|127\.0\.0\.1|\[::1\])(?::\d+)?$/.test(host);
-    // For remote hosts, force wss to avoid 301 redirects from ws -> https
-    wsProto = isLocal ? (window.location.protocol === 'https:' ? 'wss' : 'ws') : 'wss';
-  }
-  return `${wsProto}://${host}/ws/alerts`;
+  const base = getApiBase(); // e.g. "https://ai-ids-iawg.onrender.com"
+  const wsUrl = base.replace(/^https:/i, 'wss:').replace(/^http:/i, 'ws:');
+  return `${wsUrl}/ws/alerts`;
 }

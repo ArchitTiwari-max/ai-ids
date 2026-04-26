@@ -18,27 +18,34 @@ function useWebSocketAlerts() {
   const [status, setStatus] = useState('disconnected')
   const wsRef = useRef(null)
 
+  // Deduplication helper
+  const addAlerts = (newAlerts) => {
+    setAlerts((prev) => {
+      const existingIds = new Set(prev.map((a) => a.id))
+      const filtered = newAlerts.filter((a) => !existingIds.has(a.id))
+      const next = [...prev, ...filtered]
+      return next.length > 200 ? next.slice(next.length - 200) : next
+    })
+  }
+
   useEffect(() => {
     const url = getWsUrl()
-
     const ws = new WebSocket(url)
     wsRef.current = ws
     setStatus('connecting')
 
     ws.onopen = () => setStatus('connected')
     ws.onclose = () => setStatus('disconnected')
-    ws.onerror = () => setStatus('error')
+    ws.onerror = () => {
+      setStatus('error')
+      // Note: ws.onerror doesn't provide detail, but we can assume WS is not supported or failed
+    }
 
     ws.onmessage = (ev) => {
       try {
         const msg = JSON.parse(ev.data)
         if (msg?.type === 'hello') return
-        // Expecting: { id, malicious, score, timestamp, features }
-        setAlerts((prev) => {
-          const next = [...prev, msg]
-          // Keep last 200
-          return next.length > 200 ? next.slice(next.length - 200) : next
-        })
+        addAlerts([msg])
       } catch {}
     }
 
@@ -46,6 +53,29 @@ function useWebSocketAlerts() {
       try { ws.close() } catch {}
     }
   }, [])
+
+  // Polling fallback if status is not connected
+  useEffect(() => {
+    if (status === 'connected') return
+
+    const poll = async () => {
+      const apiBase = getApiBase()
+      try {
+        const res = await fetch(`${apiBase}/alerts/recent?limit=50`)
+        if (res.ok) {
+          const data = await res.json()
+          addAlerts(data)
+        }
+      } catch (err) {
+        console.warn('Polling failed:', err)
+      }
+    }
+
+    // Initial poll
+    poll()
+    const timer = setInterval(poll, 3000)
+    return () => clearInterval(timer)
+  }, [status])
 
   return { alerts, status }
 }
