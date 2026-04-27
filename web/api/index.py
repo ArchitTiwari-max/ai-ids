@@ -16,6 +16,7 @@ from pydantic import BaseModel
 
 MODEL_ENV = os.getenv("MODEL_PATH")
 DEFAULT_MODEL_PATH = Path(__file__).resolve().parent / "models" / "model.joblib"
+model = None
 
 app = FastAPI(title="AI IDS Backend", version="0.1.0", root_path="/api")
 app.add_middleware(
