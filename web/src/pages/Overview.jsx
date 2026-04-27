@@ -90,8 +90,27 @@ export default function Overview() {
 
   return (
     <div className="overview-page">
-      <div className="overview-hero">
-        <img src="/hero-lock.png" alt="Security Lock" className="hero-image" />
+      <div className="overview-hero" style={{ position: 'relative', background: '#0f172a', borderRadius: 16, overflow: 'hidden', minHeight: 260 }}>
+        <div
+          style={{
+            position: 'absolute', inset: 0,
+            background: 'linear-gradient(135deg, #1e293b 0%, #0f172a 60%, #1e1b4b 100%)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            zIndex: 0
+          }}
+        >
+          {/* skeleton shimmer visible while image loads */}
+          <div style={{ width: 80, height: 80, borderRadius: '50%', background: 'rgba(255,255,255,0.08)', animation: 'pulse 1.5s ease-in-out infinite' }} />
+        </div>
+        <img
+          src="/hero-lock.png"
+          alt="Security Lock"
+          className="hero-image"
+          loading="eager"
+          fetchPriority="high"
+          decoding="async"
+          style={{ position: 'relative', zIndex: 1, display: 'block', width: '100%' }}
+        />
       </div>
 
       <div className="overview-banner">
