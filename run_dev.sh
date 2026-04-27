@@ -41,7 +41,7 @@ fi
 FRONTEND_PORT=5175
 
 echo "[frontend] Starting Vite dev server on http://localhost:$FRONTEND_PORT ..."
-VITE_BACKEND_HOST="localhost:8000" npm run dev -- --host 0.0.0.0 --port "$FRONTEND_PORT" --strictPort &
+VITE_BACKEND_HOST="localhost:8000" npm run dev -- --host 0.0.0.0 --port "$FRONTEND_PORT" &
 FRONTEND_PID=$!
 
 trap 'echo "Stopping servers..."; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null || true; exit 0' INT TERM

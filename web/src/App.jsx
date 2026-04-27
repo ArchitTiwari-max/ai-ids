@@ -10,6 +10,7 @@ import {
   Legend
 } from 'chart.js'
 import { getWsUrl, getApiBase } from './lib/api'
+import { Show, SignInButton, SignUpButton, UserButton } from '@clerk/react'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend)
 
@@ -26,7 +27,6 @@ function useAlerts() {
     })
   }
 
-  // Try WebSocket — works locally, gracefully degrades on Vercel
   useEffect(() => {
     let ws
     try {
@@ -135,7 +135,50 @@ function AlertsTable({ alerts }) {
   )
 }
 
-export default function App() {
+function SplashScreen({ onComplete }) {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onComplete()
+    }, 2800)
+    return () => clearTimeout(timer)
+  }, [onComplete])
+
+  return (
+    <div className="splash-container">
+      <div className="splash-radar"></div>
+      <div className="splash-text">AI Threat Engine</div>
+      <div className="splash-subtext">Initializing neural networks...</div>
+      <div className="splash-progress">
+        <div className="splash-progress-bar"></div>
+      </div>
+    </div>
+  )
+}
+
+function AuthPage() {
+  return (
+    <div className="auth-container">
+      <div className="auth-card">
+        <div className="auth-logo">
+          <div className="auth-radar"></div>
+        </div>
+        <h1 className="auth-title">AI IDS Dashboard</h1>
+        <p className="auth-subtitle">Secure access to your threat intelligence platform</p>
+        <div className="auth-buttons">
+          <SignInButton mode="modal">
+            <button className="auth-btn-primary" id="sign-in-btn">Sign In</button>
+          </SignInButton>
+          <SignUpButton mode="modal">
+            <button className="auth-btn-secondary" id="sign-up-btn">Create Account</button>
+          </SignUpButton>
+        </div>
+        <p className="auth-footer">AI-powered network intrusion detection system</p>
+      </div>
+    </div>
+  )
+}
+
+function Dashboard() {
   const { alerts, status, addAlerts } = useAlerts()
   const total = alerts.length
   const malicious = alerts.filter((a) => a.malicious).length
@@ -146,28 +189,25 @@ export default function App() {
 
   const { data, options } = useChartData(alerts)
 
-  // Real traffic samples from ml/data/sample.csv
   const CSV_SAMPLES = [
-    { 'Destination Port': 80,  'Flow Duration': 1000, 'Total Fwd Packets': 10,  'Total Backward Packets': 5  },  // BENIGN
-    { 'Destination Port': 443, 'Flow Duration': 1500, 'Total Fwd Packets': 12,  'Total Backward Packets': 8  },  // BENIGN
-    { 'Destination Port': 22,  'Flow Duration': 2000, 'Total Fwd Packets': 15,  'Total Backward Packets': 10 },  // BENIGN
-    { 'Destination Port': 80,  'Flow Duration': 100,  'Total Fwd Packets': 2,   'Total Backward Packets': 1  },  // BENIGN
-    { 'Destination Port': 443, 'Flow Duration': 500,  'Total Fwd Packets': 8,   'Total Backward Packets': 4  },  // BENIGN
-    { 'Destination Port': 80,  'Flow Duration': 5000, 'Total Fwd Packets': 50,  'Total Backward Packets': 40 },  // MALICIOUS
-    { 'Destination Port': 22,  'Flow Duration': 100,  'Total Fwd Packets': 500, 'Total Backward Packets': 1  },  // MALICIOUS
-    { 'Destination Port': 80,  'Flow Duration': 2000, 'Total Fwd Packets': 100, 'Total Backward Packets': 10 },  // MALICIOUS
-    { 'Destination Port': 80,  'Flow Duration': 3000, 'Total Fwd Packets': 80,  'Total Backward Packets': 20 },  // MALICIOUS
-    { 'Destination Port': 443, 'Flow Duration': 4000, 'Total Fwd Packets': 120, 'Total Backward Packets': 30 },  // MALICIOUS
+    { 'Destination Port': 80,  'Flow Duration': 1000, 'Total Fwd Packets': 10,  'Total Backward Packets': 5  },
+    { 'Destination Port': 443, 'Flow Duration': 1500, 'Total Fwd Packets': 12,  'Total Backward Packets': 8  },
+    { 'Destination Port': 22,  'Flow Duration': 2000, 'Total Fwd Packets': 15,  'Total Backward Packets': 10 },
+    { 'Destination Port': 80,  'Flow Duration': 100,  'Total Fwd Packets': 2,   'Total Backward Packets': 1  },
+    { 'Destination Port': 443, 'Flow Duration': 500,  'Total Fwd Packets': 8,   'Total Backward Packets': 4  },
+    { 'Destination Port': 80,  'Flow Duration': 5000, 'Total Fwd Packets': 50,  'Total Backward Packets': 40 },
+    { 'Destination Port': 22,  'Flow Duration': 100,  'Total Fwd Packets': 500, 'Total Backward Packets': 1  },
+    { 'Destination Port': 80,  'Flow Duration': 2000, 'Total Fwd Packets': 100, 'Total Backward Packets': 10 },
+    { 'Destination Port': 80,  'Flow Duration': 3000, 'Total Fwd Packets': 80,  'Total Backward Packets': 20 },
+    { 'Destination Port': 443, 'Flow Duration': 4000, 'Total Fwd Packets': 120, 'Total Backward Packets': 30 },
   ]
 
-  // Scan button — sends real CSV rows to backend one by one
   const [scanning, setScanning] = useState(false)
   const runScan = async () => {
     if (scanning) return
     setScanning(true)
     const apiBase = getApiBase()
     try {
-      // Send all CSV rows (shuffle for variety)
       const shuffled = [...CSV_SAMPLES].sort(() => Math.random() - 0.5)
       for (let i = 0; i < shuffled.length; i++) {
         const features = shuffled[i]
@@ -202,10 +242,11 @@ export default function App() {
       <header>
         <h1>AI IDS Dashboard</h1>
         <div className={`status status-${status}`}>{statusLabel}</div>
-        <div style={{ marginLeft: 'auto' }}>
+        <div style={{ marginLeft: 'auto', display: 'flex', gap: '10px', alignItems: 'center' }}>
           <button onClick={runScan} disabled={scanning} className="btn">
             {scanning ? 'Scanning…' : 'Run Scan'}
           </button>
+          <UserButton />
         </div>
       </header>
 
@@ -229,5 +270,24 @@ export default function App() {
         </small>
       </footer>
     </div>
+  )
+}
+
+export default function App() {
+  const [showSplash, setShowSplash] = useState(true)
+
+  if (showSplash) {
+    return <SplashScreen onComplete={() => setShowSplash(false)} />
+  }
+
+  return (
+    <>
+      <Show when="signed-out">
+        <AuthPage />
+      </Show>
+      <Show when="signed-in">
+        <Dashboard />
+      </Show>
+    </>
   )
 }
