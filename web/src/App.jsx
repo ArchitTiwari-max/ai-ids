@@ -35,7 +35,7 @@ function AuthPage() {
         <div className="auth-logo">
           <div className="auth-radar"></div>
         </div>
-        <h1 className="auth-title">AI IDS Dashboard</h1>
+        <h1 className="auth-title">IDS with Machine Learning</h1>
         <p className="auth-subtitle">Secure access to your threat intelligence platform</p>
         <div className="auth-buttons">
           <SignInButton mode="modal">
