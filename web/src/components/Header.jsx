@@ -27,7 +27,7 @@ export default function Header() {
     <header className="main-header">
       <div className="header-logo">
         <ShieldAlert className="logo-icon" size={28} />
-        <h2>IDS with Machine Learning</h2>
+        <h2>ai-ids</h2>
       </div>
       <nav className="header-nav">
         {navItems.map((item) => (

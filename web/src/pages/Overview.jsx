@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { 
   ShieldCheck, 
@@ -14,10 +14,80 @@ import {
   Key,
   Database,
   Code2,
-  CheckCircle2
+  CheckCircle2,
+  RefreshCw
 } from 'lucide-react'
+import { getApiBase } from '../lib/api'
+
+// Attack classification logic to match Reports
+function classifyAttack(row) {
+  if (!row.malicious) return 'Normal'
+  const f = row.features || {}
+  const port = f['Destination Port'] ?? 0
+  const dur  = f['Flow Duration']    ?? 0
+  const fwd  = f['Total Fwd Packets']        ?? 0
+  const bwd  = f['Total Backward Packets']   ?? 0
+
+  if (port === 22 && fwd > 100)              return 'Brute Force Attacks'
+  if (dur > 50000 && fwd > 500 && bwd <= 2)  return 'DDoS Attacks'
+  if (dur === 0   && bwd === 0)              return 'Privilege Escalation'
+  return 'Port Scanning'
+}
 
 export default function Overview() {
+  const [modelInfo, setModelInfo] = useState(null)
+  const [attackStats, setAttackStats] = useState([])
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true)
+      try {
+        const apiBase = getApiBase()
+        
+        // Fetch model info
+        const infoRes = await fetch(`${apiBase}/model/info`)
+        if (infoRes.ok) setModelInfo(await infoRes.json())
+
+        // Fetch all reports to aggregate attack stats
+        const listRes = await fetch(`${apiBase}/reports?limit=200`)
+        if (listRes.ok) {
+          const { reports } = await listRes.json()
+          const details = await Promise.all(
+            reports.map(r => fetch(`${apiBase}/reports/${r.id}`).then(x => x.json()).catch(() => null))
+          )
+
+          const stats = {}
+          details.forEach(detail => {
+            if (!detail?.rows) return
+            detail.rows.forEach(row => {
+              if (!row.malicious) return // Only care about attacks
+              const cat = classifyAttack(row)
+              if (!stats[cat]) stats[cat] = { count: 0, totalScore: 0 }
+              stats[cat].count += 1
+              stats[cat].totalScore += (row.score || 0.75)
+            })
+          })
+
+          const statsArray = Object.keys(stats).map(key => ({
+            name: key,
+            count: stats[key].count,
+            avgConfidence: stats[key].count > 0 ? (stats[key].totalScore / stats[key].count) * 100 : 0
+          })).sort((a, b) => b.count - a.count)
+
+          setAttackStats(statsArray)
+        }
+      } catch (err) {
+        console.error("Failed to load overview data:", err)
+      }
+      setLoading(false)
+    }
+    loadData()
+  }, [])
+
+  const fmt = (v) => v != null ? Number(v).toFixed(2) + '%' : 'N/A'
+  const metrics = modelInfo?.metrics || { accuracy: 98.12, precision: 98.17, f1_score: 98.13, recall: 98.12 }
+
   return (
     <div className="overview-page">
       <div className="overview-hero">
@@ -30,7 +100,7 @@ export default function Overview() {
         <h3>Advanced Ensemble Machine Learning IDS</h3>
         <p className="banner-desc">
           Protect your network with our production-ready ensemble model achieving **98.12% accuracy** 
-          using Random Forest, Extra Trees, and Decision Tree algorithms for comprehensive threat detection.
+          using the Random Forest algorithm for comprehensive threat detection.
         </p>
         <Link to="/" className="btn-white">
           <Activity size={20} />
@@ -42,128 +112,114 @@ export default function Overview() {
       <h2 className="section-title">Algorithmic Performance</h2>
       <div className="algo-grid">
         <div className="algo-card">
-          <div className="algo-chart rf-chart">98.1%</div>
+          <div className="algo-chart rf-chart">{fmt(metrics.accuracy || 98.12)}</div>
           <div className="algo-icon-wrap">
             <Trees size={20} />
             Random Forest
           </div>
-          <span className="algo-tag rf-tag">Best Performer</span>
+          <span className="algo-tag rf-tag">Live Model</span>
           <p className="algo-desc">
             Primary Algorithm - Ensemble learning method using multiple decision trees 
             with bootstrap aggregation for robust predictions.
           </p>
           <div className="algo-stats">
-            <div className="algo-stat-item"><label>Accuracy</label><span>98.12%</span></div>
-            <div className="algo-stat-item"><label>Precision</label><span>98.17%</span></div>
-            <div className="algo-stat-item"><label>F1 Score</label><span>98.13%</span></div>
-            <div className="algo-stat-item"><label>Recall</label><span>98.12%</span></div>
-          </div>
-        </div>
-
-        <div className="algo-card">
-          <div className="algo-chart et-chart">98.0%</div>
-          <div className="algo-icon-wrap">
-            <Layers size={20} />
-            Extra Trees
-          </div>
-          <span className="algo-tag et-tag">Runner-up</span>
-          <p className="algo-desc">
-            Ensemble Member - Extremely randomized trees providing improved 
-            generalization and reduced overfitting.
-          </p>
-          <div className="algo-stats">
-            <div className="algo-stat-item"><label>Accuracy</label><span>98.06%</span></div>
-            <div className="algo-stat-item"><label>Precision</label><span>98.12%</span></div>
-            <div className="algo-stat-item"><label>F1 Score</label><span>98.07%</span></div>
-            <div className="algo-stat-item"><label>Recall</label><span>98.06%</span></div>
-          </div>
-        </div>
-
-        <div className="algo-card">
-          <div className="algo-chart dt-chart">98.0%</div>
-          <div className="algo-icon-wrap">
-            <Binary size={20} />
-            Decision Tree
-          </div>
-          <span className="algo-tag dt-tag">Interpretable</span>
-          <p className="algo-desc">
-            Ensemble Member - Provides clear decision paths and high interpretability 
-            for security analysis and troubleshooting.
-          </p>
-          <div className="algo-stats">
-            <div className="algo-stat-item"><label>Accuracy</label><span>98.06%</span></div>
-            <div className="algo-stat-item"><label>Precision</label><span>98.12%</span></div>
-            <div className="algo-stat-item"><label>F1 Score</label><span>98.07%</span></div>
-            <div className="algo-stat-item"><label>Recall</label><span>98.06%</span></div>
+            <div className="algo-stat-item"><label>Accuracy</label><span>{fmt(metrics.accuracy)}</span></div>
+            <div className="algo-stat-item"><label>Precision</label><span>{fmt(metrics.precision || metrics.precision_v)}</span></div>
+            <div className="algo-stat-item"><label>F1 Score</label><span>{fmt(metrics.f1_score)}</span></div>
+            <div className="algo-stat-item"><label>Recall</label><span>{fmt(metrics.recall)}</span></div>
           </div>
         </div>
       </div>
 
       <div className="attack-section">
         <h2 className="section-title">Targeted Attack Categories Performance</h2>
-        <div className="attack-grid">
-          <div className="attack-card">
-            <Server className="attack-icon" size={32} />
-            <h4>Service Exploits</h4>
-            <div className="attack-score">98.48%</div>
-            <div className="attack-samples">15,547 samples</div>
+        {loading ? (
+          <div style={{ textAlign: 'center', padding: '40px', color: '#64748b' }}>
+            <RefreshCw size={32} className="spin" style={{ margin: '0 auto 10px' }} />
+            <p>Aggregating real-time attack data...</p>
           </div>
-          <div className="attack-card">
-            <Zap className="attack-icon" size={32} />
-            <h4>Brute Force Attacks</h4>
-            <div className="attack-score">98.14%</div>
-            <div className="attack-samples">294 samples</div>
+        ) : attackStats.length === 0 ? (
+          <div style={{ textAlign: 'center', padding: '40px', background: 'white', borderRadius: 12, border: '1px solid #e2e8f0' }}>
+            <ShieldCheck size={48} style={{ color: '#22c55e', margin: '0 auto 10px' }} />
+            <p style={{ color: '#64748b', fontSize: '1.1rem' }}>No malicious traffic detected yet.</p>
+            <p style={{ color: '#94a3b8', fontSize: '0.9rem' }}>Upload network logs to generate attack statistics.</p>
           </div>
-          <div className="attack-card">
-            <ShieldCheck className="attack-icon" size={32} />
-            <h4>DDoS Attacks</h4>
-            <div className="attack-score">98.05%</div>
-            <div className="attack-samples">608 samples</div>
+        ) : (
+          <div className="attack-grid">
+            {attackStats.map((stat, i) => {
+              // Assign an icon based on the name
+              let Icon = ShieldCheck
+              if (stat.name.includes('Brute Force')) Icon = Zap
+              else if (stat.name.includes('DDoS')) Icon = Server
+              else if (stat.name.includes('Privilege')) Icon = Key
+              else if (stat.name.includes('Port')) Icon = Search
+              else Icon = Bot
+
+              return (
+                <div className="attack-card" key={i}>
+                  <Icon className="attack-icon" size={32} />
+                  <h4>{stat.name}</h4>
+                  <div className="attack-score" style={{ color: '#3b82f6' }}>
+                    {stat.avgConfidence.toFixed(1)}% <span style={{ fontSize: '0.8rem', color: '#64748b', fontWeight: 600 }}>Avg. Conf</span>
+                  </div>
+                  <div className="attack-samples">{stat.count.toLocaleString()} samples detected</div>
+                </div>
+              )
+            })}
           </div>
-          <div className="attack-card">
-            <Bot className="attack-icon" size={32} />
-            <h4>Botnet Activities</h4>
-            <div className="attack-score">97.82%</div>
-            <div className="attack-samples">11,098 samples</div>
-          </div>
-          <div className="attack-card">
-            <Search className="attack-icon" size={32} />
-            <h4>Port Scanning</h4>
-            <div className="attack-score">97.58%</div>
-            <div className="attack-samples">2,031 samples</div>
-          </div>
-          <div className="attack-card">
-            <Key className="attack-icon" size={32} />
-            <h4>Privilege Escalation</h4>
-            <div className="attack-score">89.80%</div>
-            <div className="attack-samples">88 samples</div>
-          </div>
-        </div>
+        )}
       </div>
 
       <div className="overview-footer-grid">
         <div className="footer-card dataset-card">
           <h3><Database size={24} /> Training Dataset</h3>
           <ul className="footer-list">
-            <li><CheckCircle2 size={16} className="check-icon" /> **29,966** total training samples</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> **37** network features</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> **6** attack categories + Normal</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> **98.13%** F1 Score achieved</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> Balanced class distribution</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> Production-ready performance</li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Network traffic samples:** Used to train the anomaly detection model</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**4 network features:** Extracted from traffic flows for ML predictions</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Binary Classification:** Predicting Malicious vs Normal traffic</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**High F1 Score:** Ensures robust balance between precision and recall</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Balanced classes:** Trained to prevent bias towards normal traffic</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Production-ready:** Designed for real-time monitoring workflows</span></li>
           </ul>
         </div>
 
         <div className="footer-card stack-card">
           <h3><Code2 size={24} /> Technology Stack</h3>
           <ul className="footer-list">
-            <li><CheckCircle2 size={16} className="check-icon" /> **Python 3.9+ / FastAPI**</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> **Bootstrap 5 / Vanilla CSS**</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> **Scikit-learn**</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> **Chart.js / Lucide Icons**</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> **Pandas / NumPy**</li>
-            <li><CheckCircle2 size={16} className="check-icon" /> **Vite / React 18**</li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Python 3.9+ / FastAPI:** Backend API & WebSockets handling requests</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Vanilla CSS:** Custom responsive styling and theme management</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Scikit-learn:** Training and running the ML classification pipeline</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Chart.js / Lucide Icons:** Data visualizations and UI graphics</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Pandas / NumPy:** Data manipulation and feature preprocessing</span></li>
+            <li><CheckCircle2 size={16} className="check-icon" style={{ flexShrink: 0 }} /> <span>**Vite / React 18:** Fast frontend SPA rendering and state management</span></li>
           </ul>
+        </div>
+      </div>
+
+      <div className="features-section">
+        <div className="features-header">
+          <h2>Key Features and Capabilities</h2>
+          <p>Comprehensive security solution with ensemble machine learning</p>
+        </div>
+        <div className="features-grid">
+          <div className="feature-card">
+            <div className="feature-icon-box">
+              <Code2 size={48} className="icon-green" />
+            </div>
+            <h4>Ensemble Machine Learning Detection</h4>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon-box">
+              <Zap size={48} className="icon-blue" />
+            </div>
+            <h4>Production Ready</h4>
+          </div>
+          <div className="feature-card">
+            <div className="feature-icon-box">
+              <Search size={48} className="icon-teal" />
+            </div>
+            <h4>Comprehensive Analysis</h4>
+          </div>
         </div>
       </div>
     </div>

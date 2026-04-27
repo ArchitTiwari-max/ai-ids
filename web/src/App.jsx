@@ -6,7 +6,8 @@ import Layout from './components/Layout'
 import Dashboard from './pages/Dashboard'
 import Overview from './pages/Overview'
 import Upload from './pages/Upload'
-import { Reports, LiveMonitoring, Access, BlockedIPs } from './pages/Placeholders'
+import { Reports } from './pages/Reports'
+import { LiveMonitoring, Access, BlockedIPs } from './pages/Placeholders'
 
 function SplashScreen({ onComplete }) {
   useEffect(() => {
@@ -35,7 +36,7 @@ function AuthPage() {
         <div className="auth-logo">
           <div className="auth-radar"></div>
         </div>
-        <h1 className="auth-title">IDS with Machine Learning</h1>
+        <h1 className="auth-title">ai-ids</h1>
         <p className="auth-subtitle">Secure access to your threat intelligence platform</p>
         <div className="auth-buttons">
           <SignInButton mode="modal">

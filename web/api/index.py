@@ -2,6 +2,10 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import sqlite3
+import threading
+import uuid
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -9,10 +13,64 @@ from typing import Any, Dict, List, Optional
 import joblib
 import numpy as np
 import pandas as pd
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, PlainTextResponse
 from pydantic import BaseModel
+
+# ─── Database Setup ─────────────────────────────────────────────────────────
+# Default: SQLite (no credentials needed, file-based, production-ready for small scale)
+# Override with DATABASE_URL env var for PostgreSQL:
+#   DATABASE_URL=postgresql://user:password@host:5432/dbname
+DATABASE_URL = os.getenv("DATABASE_URL", "")
+DB_FILE = Path(__file__).resolve().parent / "data" / "reports.db"
+DB_FILE.parent.mkdir(parents=True, exist_ok=True)
+
+_db_lock = threading.Lock()
+
+
+def _get_sqlite_conn():
+    conn = sqlite3.connect(str(DB_FILE), check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def _init_db():
+    """Create tables if they don't exist."""
+    with _db_lock:
+        conn = _get_sqlite_conn()
+        conn.executescript("""
+            CREATE TABLE IF NOT EXISTS reports (
+                id          TEXT PRIMARY KEY,
+                filename    TEXT NOT NULL,
+                uploaded_at TEXT NOT NULL,
+                total       INTEGER DEFAULT 0,
+                malicious   INTEGER DEFAULT 0,
+                benign      INTEGER DEFAULT 0,
+                avg_score   REAL DEFAULT 0,
+                accuracy    REAL,
+                precision_v REAL,
+                f1_score    REAL,
+                recall      REAL,
+                status      TEXT DEFAULT 'complete'
+            );
+
+            CREATE TABLE IF NOT EXISTS report_rows (
+                id          TEXT PRIMARY KEY,
+                report_id   TEXT NOT NULL REFERENCES reports(id) ON DELETE CASCADE,
+                row_index   INTEGER,
+                malicious   INTEGER,
+                score       REAL,
+                features    TEXT,
+                timestamp   TEXT,
+                FOREIGN KEY (report_id) REFERENCES reports(id)
+            );
+        """)
+        conn.commit()
+        conn.close()
+
+
+_init_db()
 
 MODEL_ENV = os.getenv("MODEL_PATH")
 DEFAULT_MODEL_PATH = Path(__file__).resolve().parent / "models" / "model.joblib"
@@ -138,6 +196,62 @@ def health():
     return {"status": "ok", "model_loaded": model is not None}
 
 
+@app.get("/model/info")
+def model_info():
+    """Return real metadata extracted from the loaded model pipeline."""
+    if model is None:
+        return {"model_loaded": False}
+
+    info: Dict[str, Any] = {"model_loaded": True}
+
+    # Walk through Pipeline steps to find the classifier
+    steps = getattr(model, "steps", [])
+    clf = None
+    for _, step in steps:
+        if hasattr(step, "predict"):
+            clf = step
+            break
+    if clf is None:
+        clf = model  # model itself might be the classifier
+
+    info["estimator_type"] = type(clf).__name__
+
+    # For ensemble models expose sub-estimator count
+    if hasattr(clf, "n_estimators"):
+        info["n_estimators"] = clf.n_estimators
+    if hasattr(clf, "estimators_"):
+        info["fitted_estimators"] = len(clf.estimators_)
+
+    # Classes
+    if hasattr(clf, "classes_"):
+        info["classes"] = clf.classes_.tolist()
+        info["n_classes"] = len(clf.classes_)
+
+    # Feature importances (top 10)
+    if hasattr(clf, "feature_importances_"):
+        fi = clf.feature_importances_.tolist()
+        info["n_features"] = len(fi)
+        # Try to get feature names from schema
+        schema_path = Path(__file__).resolve().parent.parent.parent / "ml" / "models" / "schema.json"
+        if schema_path.exists():
+            import json as _json
+            schema = _json.loads(schema_path.read_text())
+            numeric_cols = schema.get("numeric_cols", [])
+            categorical_cols = schema.get("categorical_cols", [])
+            all_cols = numeric_cols + categorical_cols
+            if len(all_cols) == len(fi):
+                top_features = sorted(zip(all_cols, fi), key=lambda x: -x[1])[:5]
+                info["top_features"] = [{"name": n, "importance": round(v, 4)} for n, v in top_features]
+
+    # Load metrics if saved alongside model
+    metrics_path = Path(__file__).resolve().parent / "models" / "metrics.json"
+    if metrics_path.exists():
+        import json as _json
+        info["metrics"] = _json.loads(metrics_path.read_text())
+
+    return info
+
+
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest):
     malicious, score = predict_from_features(req.features)
@@ -230,6 +344,140 @@ def _start_mqtt():
         print("[INFO] MQTT loop started")
 
 
+
 @app.on_event("startup")
 def maybe_start_mqtt():
     _start_mqtt()
+
+
+# ─── Reports API ─────────────────────────────────────────────────────────────
+
+class ReportRowIn(BaseModel):
+    row_index: int
+    malicious: bool
+    score: Optional[float] = None
+    features: Dict[str, Any]
+    timestamp: str
+
+
+class SaveReportRequest(BaseModel):
+    filename: str
+    total: int
+    malicious: int
+    benign: int
+    avg_score: float
+    accuracy: Optional[float] = None
+    precision_v: Optional[float] = None
+    f1_score: Optional[float] = None
+    recall: Optional[float] = None
+    rows: List[ReportRowIn] = []
+
+
+@app.post("/reports/save")
+def save_report(req: SaveReportRequest):
+    """Save a CSV analysis report to the database."""
+    report_id = str(uuid.uuid4())
+    uploaded_at = datetime.utcnow().isoformat() + "Z"
+
+    with _db_lock:
+        conn = _get_sqlite_conn()
+        try:
+            conn.execute(
+                """INSERT INTO reports
+                   (id, filename, uploaded_at, total, malicious, benign, avg_score,
+                    accuracy, precision_v, f1_score, recall, status)
+                   VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'complete')""",
+                (report_id, req.filename, uploaded_at, req.total, req.malicious,
+                 req.benign, req.avg_score, req.accuracy, req.precision_v,
+                 req.f1_score, req.recall)
+            )
+            for row in req.rows:
+                conn.execute(
+                    """INSERT INTO report_rows
+                       (id, report_id, row_index, malicious, score, features, timestamp)
+                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                    (str(uuid.uuid4()), report_id, row.row_index,
+                     int(row.malicious), row.score,
+                     json.dumps(row.features), row.timestamp)
+                )
+            conn.commit()
+        finally:
+            conn.close()
+
+    return {"id": report_id, "uploaded_at": uploaded_at}
+
+
+@app.get("/reports")
+def list_reports(limit: int = 50, offset: int = 0):
+    """List all saved reports (newest first)."""
+    with _db_lock:
+        conn = _get_sqlite_conn()
+        try:
+            rows = conn.execute(
+                """SELECT id, filename, uploaded_at, total, malicious, benign,
+                          avg_score, accuracy, precision_v, f1_score, recall, status
+                   FROM reports
+                   ORDER BY uploaded_at DESC
+                   LIMIT ? OFFSET ?""",
+                (limit, offset)
+            ).fetchall()
+            total_count = conn.execute("SELECT COUNT(*) FROM reports").fetchone()[0]
+        finally:
+            conn.close()
+
+    return {
+        "total": total_count,
+        "reports": [dict(r) for r in rows]
+    }
+
+
+@app.get("/reports/{report_id}")
+def get_report(report_id: str):
+    """Get a single report with all its rows."""
+    with _db_lock:
+        conn = _get_sqlite_conn()
+        try:
+            report = conn.execute(
+                "SELECT * FROM reports WHERE id = ?", (report_id,)
+            ).fetchone()
+            if not report:
+                raise HTTPException(status_code=404, detail="Report not found")
+            rows = conn.execute(
+                """SELECT row_index, malicious, score, features, timestamp
+                   FROM report_rows WHERE report_id = ? ORDER BY row_index""",
+                (report_id,)
+            ).fetchall()
+        finally:
+            conn.close()
+
+    parsed_rows = []
+    for r in rows:
+        d = dict(r)
+        try:
+            d["features"] = json.loads(d["features"])
+        except Exception:
+            pass
+        parsed_rows.append(d)
+
+    return {**dict(report), "rows": parsed_rows}
+
+
+@app.delete("/reports/{report_id}")
+def delete_report(report_id: str):
+    """Delete a report and all its rows."""
+    with _db_lock:
+        conn = _get_sqlite_conn()
+        try:
+            result = conn.execute(
+                "DELETE FROM reports WHERE id = ?", (report_id,)
+            )
+            conn.execute(
+                "DELETE FROM report_rows WHERE report_id = ?", (report_id,)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+    if result.rowcount == 0:
+        raise HTTPException(status_code=404, detail="Report not found")
+    return {"deleted": True}
