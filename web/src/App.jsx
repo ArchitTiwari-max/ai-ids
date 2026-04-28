@@ -8,7 +8,7 @@ import Overview from './pages/Overview'
 import Upload from './pages/Upload'
 import { Reports } from './pages/Reports'
 import LiveMonitoring from './pages/LiveMonitoring'
-import { Access, BlockedIPs } from './pages/Placeholders'
+import { BlockedIPs } from './pages/Placeholders'
 
 function SplashScreen({ onComplete }) {
   useEffect(() => {
@@ -73,7 +73,6 @@ export default function App() {
             <Route path="/upload" element={<Upload />} />
             <Route path="/reports" element={<Reports />} />
             <Route path="/monitoring" element={<LiveMonitoring />} />
-            <Route path="/access" element={<Access />} />
             <Route path="/blocked" element={<BlockedIPs />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>

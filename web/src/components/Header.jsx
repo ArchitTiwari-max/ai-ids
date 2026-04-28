@@ -7,7 +7,6 @@ import {
   UploadCloud, 
   FileText, 
   Activity, 
-  Lock, 
   ShieldOff 
 } from 'lucide-react'
 import { UserButton } from '@clerk/react'
@@ -19,7 +18,6 @@ export default function Header() {
     { name: 'Upload', path: '/upload', icon: UploadCloud },
     { name: 'Reports', path: '/reports', icon: FileText },
     { name: 'Live Monitoring', path: '/monitoring', icon: Activity },
-    { name: 'Access', path: '/access', icon: Lock },
     { name: 'Blocked IPs', path: '/blocked', icon: ShieldOff },
   ]
 
