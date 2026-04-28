@@ -7,7 +7,8 @@ import Dashboard from './pages/Dashboard'
 import Overview from './pages/Overview'
 import Upload from './pages/Upload'
 import { Reports } from './pages/Reports'
-import { LiveMonitoring, Access, BlockedIPs } from './pages/Placeholders'
+import LiveMonitoring from './pages/LiveMonitoring'
+import { Access, BlockedIPs } from './pages/Placeholders'
 
 function SplashScreen({ onComplete }) {
   useEffect(() => {
