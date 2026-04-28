@@ -65,6 +65,14 @@ def _init_db():
                 timestamp   TEXT,
                 FOREIGN KEY (report_id) REFERENCES reports(id)
             );
+
+            CREATE TABLE IF NOT EXISTS blocked_ips (
+                id          TEXT PRIMARY KEY,
+                ip_address  TEXT NOT NULL UNIQUE,
+                reason      TEXT DEFAULT '',
+                blocked_at  TEXT NOT NULL,
+                active      INTEGER DEFAULT 1
+            );
         """)
         conn.commit()
         conn.close()
@@ -88,12 +96,14 @@ app.add_middleware(
 
 class PredictRequest(BaseModel):
     features: Dict[str, Any]
+    source_ip: Optional[str] = None   # optional IP passed by frontend
 
 
 class PredictResponse(BaseModel):
     malicious: bool
     score: Optional[float] = None
     timestamp: str
+    blocked: bool = False
 
 
 class Alert(BaseModel):
@@ -102,6 +112,11 @@ class Alert(BaseModel):
     score: Optional[float]
     timestamp: str
     features: Dict[str, Any]
+
+
+class BlockedIPIn(BaseModel):
+    ip_address: str
+    reason: Optional[str] = ''
 
 
 class ConnectionManager:
@@ -252,15 +267,35 @@ def model_info():
     return info
 
 
+def is_ip_blocked(ip: Optional[str]) -> bool:
+    if not ip:
+        return False
+    with _db_lock:
+        conn = _get_sqlite_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT 1 FROM blocked_ips WHERE ip_address = ? AND active = 1", (ip,))
+        row = cur.fetchone()
+        conn.close()
+    return row is not None
+
 @app.post("/predict", response_model=PredictResponse)
 def predict(req: PredictRequest):
+    if is_ip_blocked(req.source_ip):
+        ts = datetime.utcnow().isoformat() + "Z"
+        return PredictResponse(malicious=False, score=0.0, timestamp=ts, blocked=True)
+    
     malicious, score = predict_from_features(req.features)
     ts = datetime.utcnow().isoformat() + "Z"
-    return PredictResponse(malicious=malicious, score=score, timestamp=ts)
+    return PredictResponse(malicious=malicious, score=score, timestamp=ts, blocked=False)
 
 
 @app.post("/ingest")
 async def ingest(req: PredictRequest):
+    blocked = is_ip_blocked(req.source_ip)
+    if blocked:
+        ts = datetime.utcnow().isoformat() + "Z"
+        return {"ingested": False, "blocked": True, "timestamp": ts}
+        
     malicious, score = predict_from_features(req.features)
     ts = datetime.utcnow().isoformat() + "Z"
     alert = Alert(
@@ -274,7 +309,49 @@ async def ingest(req: PredictRequest):
     if len(RECENT_ALERTS) > RECENT_LIMIT:
         RECENT_ALERTS.pop(0)
     await manager.broadcast(alert.model_dump())
-    return {"ingested": True, "malicious": malicious, "score": score, "timestamp": ts}
+    return {"ingested": True, "malicious": malicious, "score": score, "timestamp": ts, "blocked": False}
+
+@app.get("/blocked_ips")
+def get_blocked_ips():
+    with _db_lock:
+        conn = _get_sqlite_conn()
+        cur = conn.cursor()
+        cur.execute("SELECT ip_address, reason, blocked_at FROM blocked_ips WHERE active = 1 ORDER BY blocked_at DESC")
+        rows = cur.fetchall()
+        conn.close()
+    return [{"ip_address": r["ip_address"], "reason": r["reason"], "blocked_at": r["blocked_at"]} for r in rows]
+
+@app.post("/blocked_ips")
+def add_blocked_ip(data: BlockedIPIn):
+    ts = datetime.utcnow().isoformat() + "Z"
+    ip_id = str(uuid.uuid4())
+    with _db_lock:
+        conn = _get_sqlite_conn()
+        try:
+            conn.execute(
+                "INSERT INTO blocked_ips (id, ip_address, reason, blocked_at, active) VALUES (?, ?, ?, ?, 1)",
+                (ip_id, data.ip_address, data.reason, ts)
+            )
+            conn.commit()
+        except sqlite3.IntegrityError:
+            # If already exists, just make sure it's active
+            conn.execute(
+                "UPDATE blocked_ips SET active = 1, reason = ?, blocked_at = ? WHERE ip_address = ?",
+                (data.reason, ts, data.ip_address)
+            )
+            conn.commit()
+        finally:
+            conn.close()
+    return {"status": "ok", "ip_address": data.ip_address}
+
+@app.delete("/blocked_ips/{ip_address:path}")
+def remove_blocked_ip(ip_address: str):
+    with _db_lock:
+        conn = _get_sqlite_conn()
+        conn.execute("UPDATE blocked_ips SET active = 0 WHERE ip_address = ?", (ip_address,))
+        conn.commit()
+        conn.close()
+    return {"status": "ok", "ip_address": ip_address}
 
 
 @app.get("/alerts/recent")

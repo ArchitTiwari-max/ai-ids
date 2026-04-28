@@ -8,7 +8,7 @@ import Overview from './pages/Overview'
 import Upload from './pages/Upload'
 import { Reports } from './pages/Reports'
 import LiveMonitoring from './pages/LiveMonitoring'
-import { BlockedIPs } from './pages/Placeholders'
+import BlockedIPs from './pages/BlockedIPs'
 
 function SplashScreen({ onComplete }) {
   useEffect(() => {
