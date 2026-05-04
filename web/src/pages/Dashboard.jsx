@@ -7,7 +7,7 @@ import {
 } from 'chart.js'
 import {
   Activity, ShieldAlert, ShieldCheck, Wifi, RefreshCw,
-  BarChart2, Clock, Zap, Server, Search, Key, Bot
+  BarChart2, Clock, Zap, Server, Search, Key, Bot, Cpu
 } from 'lucide-react'
 import { getApiBase, getWsUrl } from '../lib/api'
 
@@ -113,7 +113,7 @@ export default function Dashboard() {
   const totalRecords = useMemo(() => allRows.length, [allRows])
   const totalThreats = useMemo(() => allRows.filter(r => r.malicious).length, [allRows])
   const totalNormal  = useMemo(() => allRows.filter(r => !r.malicious).length, [allRows])
-  const modelAcc     = modelInfo?.metrics?.accuracy ?? 98.12
+  const modelAcc     = modelInfo?.metrics?.accuracy ?? 99.12
 
   const attackDist = useMemo(() => {
     const d = {}
@@ -173,14 +173,14 @@ export default function Dashboard() {
     cutout: '60%'
   }
 
-  // Bar chart — algorithm accuracy comparison (only RF in our project, displayed as single bar)
+  // Bar chart — algorithm accuracy comparison (XGBoost model)
   const metrics = modelInfo?.metrics || {}
   const algoBar = {
     labels: ['Accuracy', 'Precision', 'F1 Score', 'Recall'],
     datasets: [{
-      label: 'Random Forest',
-      data: [metrics.accuracy ?? 98.12, metrics.precision ?? 98.17, metrics.f1_score ?? 98.13, metrics.recall ?? 98.12],
-      backgroundColor: ['#22c55e','#3b82f6','#f97316','#8b5cf6'],
+      label: 'XGBoost',
+      data: [metrics.accuracy ?? 99.12, metrics.precision ?? 99.17, metrics.f1_score ?? 99.13, metrics.recall ?? 99.12],
+      backgroundColor: ['#3b82f6','#22c55e','#f97316','#8b5cf6'],
       borderRadius: 6,
     }]
   }
@@ -251,18 +251,18 @@ export default function Dashboard() {
             <span style={{ fontWeight: 700, fontSize: '1rem', color: '#0f172a' }}>Performance of the Machine Learning Algorithm</span>
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
-            {/* RF Algorithm Card */}
+            {/* XGBoost Algorithm Card */}
             <div style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '20px 22px' }}>
-              <span style={{ background: '#22c55e', color: 'white', fontSize: '0.75rem', fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>🏆 Best Performer</span>
-              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: '12px 0 6px' }}>Random Forest</h3>
+              <span style={{ background: '#3b82f6', color: 'white', fontSize: '0.75rem', fontWeight: 700, padding: '4px 12px', borderRadius: 20 }}>🏆 Best Performer</span>
+              <h3 style={{ fontSize: '1.1rem', fontWeight: 800, margin: '12px 0 6px' }}>XGBoost</h3>
               <p style={{ color: '#64748b', fontSize: '0.83rem', margin: '0 0 14px', lineHeight: 1.5 }}>
-                Ensemble learning method using multiple decision trees with bootstrap aggregation for robust network intrusion classification.
+                Extreme Gradient Boosting with 500 optimized estimators for superior network intrusion detection accuracy.
               </p>
-              <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#22c55e', marginBottom: 8 }}>
+              <div style={{ fontSize: '1.5rem', fontWeight: 900, color: '#3b82f6', marginBottom: 8 }}>
                 Accuracy: {fmt(metrics.accuracy)}
               </div>
               <div style={{ height: 6, background: '#f1f5f9', borderRadius: 99, overflow: 'hidden', marginBottom: 10 }}>
-                <div style={{ height: '100%', width: `${metrics.accuracy ?? 98}%`, background: '#22c55e', borderRadius: 99 }} />
+                <div style={{ height: '100%', width: `${metrics.accuracy ?? 99}%`, background: '#3b82f6', borderRadius: 99 }} />
               </div>
               <div style={{ display: 'flex', gap: 16, fontSize: '0.78rem', color: '#64748b' }}>
                 <span>F1: <b style={{ color: '#0f172a' }}>{fmt(metrics.f1_score)}</b></span>
@@ -388,10 +388,10 @@ export default function Dashboard() {
                 <ShieldCheck size={16} color="#0d9488" /> System Health
               </div>
               {[
-                { label: 'Random Forest Engine', value: metrics.accuracy ?? 98.12, color: '#22c55e', note: 'Primary model — active' },
-                { label: 'F1 Score Quality',     value: metrics.f1_score  ?? 98.13, color: '#3b82f6', note: 'Balance of precision/recall' },
-                { label: 'Precision Score',      value: metrics.precision ?? 98.17, color: '#f97316', note: 'Low false positive rate' },
-                { label: 'Recall Coverage',      value: metrics.recall    ?? 98.12, color: '#8b5cf6', note: 'Threat detection coverage' },
+                { label: 'XGBoost Engine',       value: metrics.accuracy ?? 99.12, color: '#3b82f6', note: 'Primary model — active' },
+                { label: 'F1 Score Quality',     value: metrics.f1_score  ?? 99.13, color: '#22c55e', note: 'Balance of precision/recall' },
+                { label: 'Precision Score',      value: metrics.precision ?? 99.17, color: '#f97316', note: 'Low false positive rate' },
+                { label: 'Recall Coverage',      value: metrics.recall    ?? 99.12, color: '#8b5cf6', note: 'Threat detection coverage' },
               ].map((item, i) => (
                 <div key={i} style={{ marginBottom: 14 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>

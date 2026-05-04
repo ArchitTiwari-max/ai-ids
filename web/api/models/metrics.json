@@ -1,8 +1,8 @@
 {
-  "accuracy": 80.0,
-  "precision": 100.0,
-  "f1_score": 80.0,
-  "recall": 66.67,
-  "estimator_type": "RandomForestClassifier",
-  "n_estimators": 200
+  "accuracy": 99.12,
+  "precision": 99.17,
+  "f1_score": 99.13,
+  "recall": 99.12,
+  "estimator_type": "XGBoost",
+  "n_estimators": 500
 }

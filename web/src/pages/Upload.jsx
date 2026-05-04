@@ -207,8 +207,8 @@ function AnalysisResults({ results, fileName, modelInfo, onReset }) {
                 <th style={{ width: 90 }}>Prediction</th>
                 <th>Attack Type</th>
                 <th style={{ width: 90 }}>Confidence</th>
-                <th style={{ width: 80 }}>Fwd Pkts</th>
-                <th style={{ width: 80 }}>Bwd Pkts</th>
+                <th className="rp-fwd-pkts">FWD PKTS</th>
+                <th className="rp-bwd-pkts">BWD PKTS</th>
               </tr>
             </thead>
             <tbody>
@@ -219,23 +219,23 @@ function AnalysisResults({ results, fileName, modelInfo, onReset }) {
                     <td className="rp-id">#{enriched.length - i}</td>
                     <td className="rp-ts">{new Date(a.timestamp).toLocaleString('en-GB', { hour12: false })}</td>
                     <td className="rp-port">{a.features?.['Destination Port'] ?? '—'}</td>
-                    <td>
+                    <td className="rp-prediction">
                       <span className={`rp-pred-badge ${a.malicious ? 'rp-attack' : 'rp-normal'}`}>
                         {a.malicious ? 'Attack' : 'Normal'}
                       </span>
                     </td>
-                    <td>
+                    <td className="rp-attack-type">
                       <span className="rp-type-badge" style={{ background: atColor + '22', color: atColor, border: `1px solid ${atColor}55` }}>
                         {a.attackType}
                       </span>
                     </td>
-                    <td>
+                    <td className="rp-confidence">
                       <span className="rp-conf-badge">
                         {a.score != null ? (a.score * 100).toFixed(1) + '%' : '—'}
                       </span>
                     </td>
-                    <td style={{ fontSize: '0.82rem', color: '#374151' }}>{a.features?.['Total Fwd Packets'] ?? '—'}</td>
-                    <td style={{ fontSize: '0.82rem', color: '#374151' }}>{a.features?.['Total Backward Packets'] ?? '—'}</td>
+                    <td className="rp-fwd-pkts">{a.features?.['Total Fwd Packets'] ?? '—'}</td>
+                    <td className="rp-bwd-pkts">{a.features?.['Total Backward Packets'] ?? '—'}</td>
                   </tr>
                 )
               })}

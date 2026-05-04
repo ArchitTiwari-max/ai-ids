@@ -9,6 +9,7 @@ import Upload from './pages/Upload'
 import { Reports } from './pages/Reports'
 import LiveMonitoring from './pages/LiveMonitoring'
 import BlockedIPs from './pages/BlockedIPs'
+import DatasetComparison from './pages/DatasetComparison'
 
 function SplashScreen({ onComplete }) {
   useEffect(() => {
@@ -74,6 +75,7 @@ export default function App() {
             <Route path="/reports" element={<Reports />} />
             <Route path="/monitoring" element={<LiveMonitoring />} />
             <Route path="/blocked" element={<BlockedIPs />} />
+            <Route path="/comparison" element={<DatasetComparison />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Route>
         </Routes>

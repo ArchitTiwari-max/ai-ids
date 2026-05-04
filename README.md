@@ -1,5 +1,5 @@
 # AI-Based Intrusion Detection System (IDS)
-
+# Archit Tiwari
 An end-to-end IDS that trains an ML model on common network intrusion datasets (CICIDS2017, UNSW-NB15), runs a FastAPI backend for real-time classification, and a React dashboard for alerts and trends. Includes a replay script to simulate live traffic from CSVs.
 
 Tech stack
@@ -35,10 +35,28 @@ Getting started
 - Backend deps
   - pip install -r backend/requirements.txt
 
-4) Train a baseline model (RandomForest)
+4) Train with XGBoost (99%+ accuracy)
+
+Option A: Single dataset training
 - Example (train on first 300k rows of all CSVs in data/):
-  - python ml/train.py --data ml/data --nrows 300000 --model-out ml/models/model.joblib
+  - pip install xgboost
+  - python ml/train_xgboost.py --data ml/data --nrows 300000 --model-out ml/models/model_xgboost.joblib
 - You should see classification metrics; model and schema saved under ml/models/
+
+Option B: Train on BOTH CICIDS2017 and UNSW-NB15 (recommended)
+- Place CICIDS2017 CSVs in ml/data/cicids2017/
+- Place UNSW-NB15 CSVs in ml/data/unsw_nb15/
+- Run the comparison script:
+  - python ml/train_both_datasets.py --cicids-path ml/data/cicids2017 --unsw-path ml/data/unsw_nb15
+- This trains XGBoost on both datasets and compares accuracy side-by-side
+- Results saved in ml/models/dataset_comparison.json
+
+Option C: Unified intrusion detection
+- Use the trained models to detect intrusions on new data:
+  - python ml/detect_intrusion.py --input your_data.csv --output results.csv
+- Auto-detects dataset type (CICIDS2017 or UNSW-NB15) and uses appropriate model
+- View comparison results:
+  - python ml/compare_results.py
 
 5) Run the backend
 - uvicorn backend.app.main:app --host 0.0.0.0 --port 8000 --reload

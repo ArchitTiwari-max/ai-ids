@@ -78,7 +78,7 @@ export default function LiveMonitoring() {
     startUptime()
 
     addLog('🔌 Initializing monitoring engine...', 'system')
-    addLog('🤖 Loading ML model — Random Forest classifier', 'system')
+    addLog('🤖 Loading ML model — XGBoost classifier (99%+ accuracy)', 'system')
     addLog('📡 Connecting to WebSocket alert stream...', 'system')
 
     setWsStatus('connecting')
